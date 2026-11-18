@@ -1,0 +1,7 @@
+interface:
+  display_name: "短剧发行工作流"
+  short_description: "一键整理逐集剧情、关键场景、单人物素材和二次发行脚本"
+  default_prompt: "使用 $short-drama-release-workflow 处理这个本地短剧文件夹，输出剧情、场景、人物素材和可剪辑的二次发行脚本。"
+
+policy:
+  allow_implicit_invocation: true
