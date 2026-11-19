@@ -9,8 +9,8 @@ REQUIRED = ["镜头", "人物", "台词", "字幕", "BGM", "音效", "尾帧", "
 FORBIDDEN = ("待补", "时间待定", "自行发挥", "见 Excel", "TODO")
 TIME_RE = re.compile(r"(\d+(?:\.\d+)?)\s*[—-]\s*(\d+(?:\.\d+)?)\s*秒")
 SHOT_TIME_RE = re.compile(r"^###\s*镜头.*?(\d+(?:\.\d+)?)\s*[—-]\s*(\d+(?:\.\d+)?)\s*秒", re.M)
-PERSON_NAME_RE = re.compile(r"^人物_[^_]+_[^_]+_[^_]+_第\d+集_\d+分\d+(?:\.\d+)?秒$")
-SCENE_NAME_RE = re.compile(r"^场景_[^_]+_[^_]+_第\d+集_\d+分\d+(?:\.\d+)?秒$")
+PERSON_NAME_RE = re.compile(r"^人物_.+?_.+?_.+?_第\d+集_\d+分\d+(?:\.\d+)?秒$")
+SCENE_NAME_RE = re.compile(r"^场景_.+?_.+?_第\d+集_\d+分\d+(?:\.\d+)?秒$")
 
 def check_image(path: Path) -> list[str]:
     issues=[]
