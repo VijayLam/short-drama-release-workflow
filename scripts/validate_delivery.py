@@ -31,6 +31,51 @@ def check_image(path: Path) -> list[str]:
         issues.append(f"无法读取:{type(exc).__name__}")
     return issues
 
+
+def validate_registry(root: Path) -> list[str]:
+    path = root / '人物角色注册表.json'
+    if not path.exists():
+        return ['缺少人物角色注册表.json：无法证明后续新人物已登记']
+    try:
+        data = json.loads(path.read_text(encoding='utf-8'))
+    except Exception as exc:
+        return [f'人物角色注册表.json无法读取:{type(exc).__name__}']
+    if not isinstance(data, dict):
+        return ['人物角色注册表.json格式不是对象']
+    chars = data.get('characters', {})
+    if isinstance(chars, list):
+        chars = {str(item.get('人物名', '')): item for item in chars if isinstance(item, dict)}
+    if not isinstance(chars, dict):
+        return ['人物角色注册表.json缺少characters对象']
+    issues = []
+    for key, record in chars.items():
+        if not isinstance(record, dict):
+            issues.append(f'角色{key}:注册记录不是对象')
+            continue
+        name = str(record.get('人物名') or key)
+        status = str(record.get('状态') or '')
+        if status == '待核验':
+            issues.append(f'角色{name}:仍处于待核验')
+        assets = record.get('资产文件', [])
+        count = record.get('资产数量', len(assets) if isinstance(assets, list) else 0)
+        if isinstance(assets, list) and len(assets) > 5:
+            issues.append(f'角色{name}:注册表资产超过5张')
+        appearances = record.get('出现记录', [])
+        if appearances and int(count or 0) == 0 and status != '无合格单人物图':
+            issues.append(f'角色{name}:已出现但没有人物资产或无合格单人物图结论')
+    unmatched = data.get('unmatched_candidates', [])
+    if unmatched:
+        issues.append(f'存在{len(unmatched)}条未处理新人物候选')
+    episode_people = data.get('episode_people', {})
+    if isinstance(episode_people, dict):
+        for episode, people in episode_people.items():
+            if not isinstance(people, list):
+                continue
+            for person in people:
+                if person not in chars and not str(person).startswith('新人物候选_'):
+                    issues.append(f'{episode}:出现人物未登记:{person}')
+    return issues
+
 def validate_package(pkg: Path) -> list[str]:
     issues=[]
     people=pkg/"01_人物图片"; scenes=pkg/"02_场景图片"; scripts=pkg/"03_脚本"
@@ -107,8 +152,8 @@ def validate_package(pkg: Path) -> list[str]:
 def main():
     ap=argparse.ArgumentParser(); ap.add_argument("root", type=Path); ap.add_argument("--json", action="store_true"); args=ap.parse_args()
     packages=sorted(p for p in args.root.iterdir() if p.is_dir() and re.match(r"\d{2}_",p.name)) if args.root.is_dir() else []
-    result={"root":str(args.root),"package_count":len(packages),"issues":{p.name:validate_package(p) for p in packages}}
-    result["issue_count"]=sum(len(v) for v in result["issues"].values())
+    result={"root":str(args.root),"package_count":len(packages),"root_issues":validate_registry(args.root),"issues":{p.name:validate_package(p) for p in packages}}
+    result["issue_count"]=len(result["root_issues"])+sum(len(v) for v in result["issues"].values())
     print(json.dumps(result,ensure_ascii=False,indent=2) if args.json else f"packages={result['package_count']} issues={result['issue_count']}")
     return 0 if result["issue_count"]==0 else 2
 if __name__=="__main__": raise SystemExit(main())
