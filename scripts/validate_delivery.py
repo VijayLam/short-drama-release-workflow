@@ -3,7 +3,7 @@
 from __future__ import annotations
 import argparse, json, re
 from pathlib import Path
-from PIL import Image, ImageStat
+from PIL import Image, ImageFilter, ImageStat
 
 REQUIRED = ["镜头", "人物", "台词", "字幕", "BGM", "音效", "尾帧", "禁止项"]
 FORBIDDEN = ("待补", "时间待定", "自行发挥", "见 Excel", "TODO")
@@ -18,9 +18,15 @@ def check_image(path: Path) -> list[str]:
         with Image.open(path) as im:
             im.verify()
         with Image.open(path).convert("L") as im:
-            mean = ImageStat.Stat(im.resize((64,64))).mean[0]
+            if min(im.size) < 480:
+                issues.append(f"分辨率过低:{im.size[0]}x{im.size[1]}")
+            small = im.resize((256,256))
+            mean = ImageStat.Stat(small.resize((64,64))).mean[0]
             if mean < 8:
                 issues.append("过暗")
+            edge_std = ImageStat.Stat(small.filter(ImageFilter.FIND_EDGES)).stddev[0]
+            if edge_std < 8.0:
+                issues.append(f"清晰度不足:边缘锐度{edge_std:.2f}")
     except Exception as exc:
         issues.append(f"无法读取:{type(exc).__name__}")
     return issues
