@@ -11,6 +11,11 @@ TIME_RE = re.compile(r"(\d+(?:\.\d+)?)\s*[—-]\s*(\d+(?:\.\d+)?)\s*秒")
 SHOT_TIME_RE = re.compile(r"^###\s*镜头.*?(\d+(?:\.\d+)?)\s*[—-]\s*(\d+(?:\.\d+)?)\s*秒", re.M)
 PERSON_NAME_RE = re.compile(r"^人物_.+?_.+?_.+?_第\d+集_\d+分\d+(?:\.\d+)?秒$")
 SCENE_NAME_RE = re.compile(r"^场景_.+?_.+?_第\d+集_\d+分\d+(?:\.\d+)?秒$")
+PERSON_NAME_PARTS_RE = re.compile(r"^人物_(?P<role>.+?)_(?P<action>.+?)_(?P<emotion>.+?)_第(?P<episode>\d+)集_(?P<time>\d+分\d+(?:\.\d+)?秒)$")
+
+def normalize_role(value: str) -> str:
+    """兼容注册表中的下划线角色键和交付文件名中的连字符角色键。"""
+    return str(value or '').strip().replace('-', '_')
 
 def check_image(path: Path) -> list[str]:
     issues=[]
@@ -48,6 +53,31 @@ def validate_registry(root: Path) -> list[str]:
     if not isinstance(chars, dict):
         return ['人物角色注册表.json缺少characters对象']
     issues = []
+    source_count = data.get('source_count')
+    scanned = data.get('scanned_episodes', [])
+    if source_count is not None:
+        try:
+            expected = set(range(1, int(source_count) + 1))
+            actual = {int(x) for x in scanned}
+            missing = sorted(expected - actual)
+            if missing:
+                issues.append(f'人物注册表未完成逐集扫描:缺少第{missing}集')
+        except (TypeError, ValueError):
+            issues.append('人物注册表source_count或scanned_episodes格式错误')
+    pending = data.get('pending_new_characters', [])
+    if pending:
+        issues.append(f'存在{len(pending)}个待处理新人物候选')
+    gate = data.get('delivery_gate')
+    if isinstance(gate, dict) and gate.get('状态') not in (None, '', '通过'):
+        issues.append(f"人物注册表交付门禁状态:{gate.get('状态')}")
+    scans = data.get('episode_scans', {})
+    if isinstance(scans, dict):
+        for episode, scan in scans.items():
+            if isinstance(scan, dict) and str(scan.get('状态') or '').startswith('发现'):
+                unknown = scan.get('未登记人物') or []
+                pending_people = scan.get('待核验人物') or []
+                details = list(map(str, unknown)) + [f'{x}(待核验)' for x in pending_people]
+                issues.append(f'{episode}:扫描发现未完成人物:{"、".join(details)}')
     for key, record in chars.items():
         if not isinstance(record, dict):
             issues.append(f'角色{key}:注册记录不是对象')
@@ -83,18 +113,44 @@ def validate_package(pkg: Path) -> list[str]:
         return ["目录不完整"]
     person_files=sorted(p for p in people.iterdir() if p.suffix.lower() in {".png",".jpg",".jpeg",".webp"})
     role_counts={}
+    registry_path = pkg.parent / '人物角色注册表.json'
+    registry_roles = set()
+    registry_status = {}
+    if registry_path.exists():
+        try:
+            registry_data = json.loads(registry_path.read_text(encoding='utf-8'))
+            chars = registry_data.get('characters', {}) if isinstance(registry_data, dict) else {}
+            if isinstance(chars, list):
+                chars = {str(x.get('人物名', '')): x for x in chars if isinstance(x, dict)}
+            if isinstance(chars, dict):
+                registry_roles = {normalize_role(k) for k in chars}
+                registry_roles |= {normalize_role(v.get('人物名')) for v in chars.values() if isinstance(v, dict) and v.get('人物名')}
+                for k, v in chars.items():
+                    if isinstance(v, dict):
+                        status = str(v.get('状态') or '')
+                        registry_status[normalize_role(k)] = status
+                        if v.get('人物名'):
+                            registry_status[normalize_role(v.get('人物名'))] = status
+        except Exception:
+            pass
     for p in person_files:
         name=p.stem
         if not PERSON_NAME_RE.match(name):
             issues.append(f"{p.name}:人物文件名不符合人物_人物名_动作_神态_集数_时间格式")
-        role=name.split("_", 2)[1] if name.startswith("人物_") and name.count("_")>=2 else name
+        parsed = PERSON_NAME_PARTS_RE.match(name)
+        role = parsed.group('role') if parsed else (name.split("_", 2)[1] if name.startswith("人物_") and name.count("_")>=2 else name)
+        if registry_roles and normalize_role(role) not in registry_roles:
+            issues.append(f"{p.name}:人物角色未登记:{role}")
+        elif registry_status.get(normalize_role(role)) != '已确认':
+            issues.append(f"{p.name}:人物角色未完成身份确认:{role}({registry_status.get(normalize_role(role), '未知状态')})")
         role_counts[role]=role_counts.get(role,0)+1
         issues.extend(f"{p.name}:{x}" for x in check_image(p))
     for role,count in role_counts.items():
         if count>5: issues.append(f"人物{role}图片超过5张")
     scene_files=sorted(p for p in scenes.iterdir() if p.suffix.lower() in {".png",".jpg",".jpeg",".webp"})
-    if len(scene_files) < 3:
-        issues.append(f"场景图不足3张:当前{len(scene_files)}张")
+    # 场景图按视觉质量门槛输出，允许 0—5 张；禁止为了凑数量放入人物近景、多人画面或模糊帧。
+    if len(scene_files) > 5:
+        issues.append(f"场景图超过5张:当前{len(scene_files)}张")
     for p in scene_files:
         name=p.stem
         if not SCENE_NAME_RE.match(name):
@@ -106,6 +162,8 @@ def validate_package(pkg: Path) -> list[str]:
     if not scripts_files: issues.append("缺少Markdown脚本")
     for s in scripts_files:
         text=s.read_text(encoding="utf-8", errors="replace")
+        if not scene_files and "无合格场景图" not in text:
+            issues.append(f"{s.name}:场景目录为空但未说明无合格场景图原因")
         for token in REQUIRED:
             if token not in text: issues.append(f"{s.name}:缺少{token}")
         for token in FORBIDDEN:
@@ -123,6 +181,19 @@ def validate_package(pkg: Path) -> list[str]:
         if not re.search(r"从上一段尾帧|从同一尾帧|动作连续承接|直接承接", text):
             issues.append(f"{s.name}:缺少第二段承接说明")
         shot_blocks = [x for x in re.split(r"(?=###\s*镜头)", text) if x.lstrip().startswith("###") and "镜头" in x[:30]]
+        referenced_roles = set()
+        for role_text in re.findall(r"(?:出镜人物|人物资产对应)[:：]\s*([^\n]+)", text):
+            for token in re.split(r'[、,，；;]', role_text):
+                token = token.strip().strip('`').strip()
+                if token:
+                    referenced_roles.add(normalize_role(token.replace('｜', '_')))
+        if registry_roles:
+            unknown_script_roles = sorted(r for r in referenced_roles if r and r not in registry_roles and r not in {'无旁白', '画外脚步声'})
+            for role in unknown_script_roles:
+                issues.append(f"{s.name}:脚本角色未登记:{role}")
+            for role in sorted(r for r in referenced_roles if r in registry_roles):
+                if registry_status.get(role) != '已确认':
+                    issues.append(f"{s.name}:脚本引用未完成身份确认角色:{role}({registry_status.get(role, '未知状态')})")
         for idx, block in enumerate(shot_blocks, 1):
             if "动作" not in block and not re.search(r"抬|放|压|指|转身|走|站|坐|推|拉|举|拍|移|停", block):
                 issues.append(f"{s.name}:镜头{idx}缺少可执行动作")
@@ -145,6 +216,8 @@ def validate_package(pkg: Path) -> list[str]:
                     issues.append(f"{s.name}:镜头时间轴有空档或重叠:{prev[1]}->{curr[0]}")
         for ref in re.findall(r"(?:使用图片|图片文件名|场景图)[:：]\s*([^\n；;]+)", text):
             ref=ref.strip().strip('`').rstrip('。；;，,')
+            if ref.startswith('无合格场景图'):
+                continue
             if ref and not (people/ref).exists() and not (scenes/ref).exists():
                 issues.append(f"{s.name}:引用不存在:{ref}")
     return issues
