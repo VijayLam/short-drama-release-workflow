@@ -170,6 +170,37 @@ def package_entries(manifest: dict[str, Any]) -> dict[str, dict[str, Any]]:
     }
 
 
+def validate_script_diversity(root: Path, expected: dict[str, dict[str, Any]]) -> list[str]:
+    """Reject title-only variants and duplicate script bodies."""
+    issues: list[str] = []
+    by_episode: dict[str, list[tuple[str, str]]] = {}
+    for package_name, item in expected.items():
+        script_rel = str(item.get("script") or "03_脚本/Seedance_一键复制.md")
+        path = root / package_name / script_rel
+        if not path.exists():
+            continue
+        digest = hashlib.sha256(path.read_bytes()).hexdigest()
+        episode = str(item.get("episode") or "")
+        by_episode.setdefault(episode, []).append((package_name, digest))
+    for episode, rows in by_episode.items():
+        seen: dict[str, list[str]] = {}
+        for package_name, digest in rows:
+            seen.setdefault(digest, []).append(package_name)
+        if any(len(names) > 1 for names in seen.values()):
+            duplicates = [names for names in seen.values() if len(names) > 1]
+            issues.append(f"第{episode}集五种版本脚本存在重复内容哈希:{duplicates}")
+        if len(rows) == 5 and len(seen) != 5:
+            issues.append(f"第{episode}集五种版本未形成五个不同脚本内容")
+    all_hashes: dict[str, list[str]] = {}
+    for rows in by_episode.values():
+        for package_name, digest in rows:
+            all_hashes.setdefault(digest, []).append(package_name)
+    for digest, names in all_hashes.items():
+        if len(names) > 1:
+            issues.append(f"跨包脚本内容重复:{names[:8]}")
+    return issues
+
+
 def validate_package(
     pkg: Path,
     expected: dict[str, Any] | None,
@@ -313,6 +344,7 @@ def main() -> int:
     issues: dict[str, list[str]] = {}
     for name in sorted(expected_names & actual_names):
         issues[name] = validate_package(actual_packages[name], expected.get(name), registry_roles, registry_status, image_cache)
+    root_issues.extend(validate_script_diversity(root, expected))
     result = {
         "root": str(root),
         "manifest": str(manifest_path),
