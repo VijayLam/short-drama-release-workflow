@@ -90,3 +90,13 @@
 - 时间轴无空档、无重叠、无占位词；
 - 每个镜头包含动作、神态、台词、字幕和声音说明；
 - 源视频哈希/大小/数量在处理前后未发生变化。
+
+## 生产级交付证据（schema 2）
+
+`生成清单.json` 不能只记录包数量，必须包含 `schema: 2`、`run_id`、`source_manifest`、`config_fingerprint`、`registry_gate`、`packages` 和每个包的 `artifact_id`。`packages` 是正式包的唯一权威集合，验收时执行清单与文件系统的双向差集检查。
+
+`人物角色注册表.json` 必须包含 `run_id`、`source_manifest_sha256`、`episode_scans`、`scanned_episodes`、`pending_new_characters` 和 `unmatched_candidates`。`待核验` 不得自动转换为 `无合格单人物图`；后者必须有逐图排除证据和审核记录。
+
+每个正式人物图、场景图和脚本 artifact 都必须绑定源视频 SHA256、上游 artifact_id、规则版本、模型版本、生成时间和状态。缺少任一来源或审核字段，正式发行门禁直接失败。
+
+正式目录只能通过 `stage → verify → current` 原子切换产生。失败运行保留 stage 和 run_manifest，上一版 current 不得被删除或覆盖。
