@@ -19,6 +19,8 @@ class FastPlanTests(unittest.TestCase):
             source = Path(temp) / "source"
             source.mkdir()
             self.assertEqual(resolve_output_path(source), (source / "二次创作发行").resolve())
+            custom = source / "用户指定交付" / "版本A"
+            self.assertEqual(resolve_output_path(source, custom), custom.resolve())
             with self.assertRaises(OutputPathError):
                 resolve_output_path(source, Path(temp) / "outside")
 
