@@ -88,6 +88,8 @@ status
 
 运行开始前必须先执行 `plan_run.py`。`noop` 表示所有依赖指纹与已验证输出一致，禁止进入模型阶段；`incremental` 必须列出变化集和依赖闭包；`full` 只允许在没有可用已验证输出或证据缺失时使用。计划结果进入 `run_manifest`，用于解释本次为何没有或只做了少量工作。
 
+正式包还必须保存 `delivery_fingerprint`。快速路径复算该指纹；缺少、变化或包文件缺失时，状态只能是 `verify_required` 或 `rebuild_required`，不能把旧图片或旧脚本当作已验证结果。
+
 ## 人物身份门禁
 
 人物状态只允许按证据转换：

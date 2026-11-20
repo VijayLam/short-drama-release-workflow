@@ -65,10 +65,10 @@ def build_plan(
         and run_manifest.get("status") == "current"
     )
     version_changes = {
-        "skill_version": generation.get("skill_version") not in (None, versions["skill_version"]),
-        "image_rule_version": generation.get("image_rule_version") not in (None, versions["image_rule_version"]),
-        "script_template_version": generation.get("script_template_version") not in (None, versions["script_template_version"]),
-        "analysis_model_version": generation.get("analysis_model_version") not in (None, versions["analysis_model_version"]),
+        "skill_version": generation.get("skill_version") != versions["skill_version"],
+        "image_rule_version": generation.get("image_rule_version") != versions["image_rule_version"],
+        "script_template_version": generation.get("script_template_version") != versions["script_template_version"],
+        "analysis_model_version": generation.get("analysis_model_version") != versions["analysis_model_version"],
     }
     source_ready = cache_manifest.get("status") == "ready" and bool(current_hashes)
     if not source_ready:
@@ -83,6 +83,10 @@ def build_plan(
         mode = "incremental"
         stages = ["asr", "facts", "assets", "scripts", "packages", "verify"]
         reason = "source_episode_changed"
+    elif not generation.get("delivery_fingerprint"):
+        mode = "verify_required"
+        stages = ["fast_verify"]
+        reason = "delivery_fingerprint_missing"
     elif version_changes["analysis_model_version"]:
         mode = "incremental"
         stages = ["facts", "assets", "scripts", "packages", "verify"]
@@ -116,7 +120,7 @@ def build_plan(
         "cache_episodes": len(current_hashes),
         "previous_episodes": len(previous_hashes),
         "elapsed_seconds": round(time.perf_counter() - started, 4),
-        "model_calls_allowed": mode != "noop",
+        "model_calls_allowed": mode not in {"noop", "verify_required"},
     }
 
 

@@ -31,9 +31,11 @@ class FastPlanTests(unittest.TestCase):
             json.dumps(
                 {
                     "status": output_status,
+                    "skill_version": DEFAULTS["skill_version"],
                     "image_rule_version": DEFAULTS["image_rule_version"],
                     "script_template_version": DEFAULTS["script_template_version"],
                     "analysis_model_version": DEFAULTS["analysis_model_version"],
+                    "delivery_fingerprint": "test-fingerprint",
                 }
             ),
             encoding="utf-8",
@@ -67,6 +69,21 @@ class FastPlanTests(unittest.TestCase):
             self.assertEqual(plan["mode"], "incremental")
             self.assertEqual(plan["changed_episodes"], ["e002"])
             self.assertTrue(plan["model_calls_allowed"])
+
+    def test_missing_delivery_fingerprint_requires_verify(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            self.write_state(root, {"e001": "a", "e002": "b"})
+            generation = json.loads(
+                (root / "二次创作发行" / "生成清单.json").read_text()
+            )
+            generation.pop("delivery_fingerprint")
+            (root / "二次创作发行" / "生成清单.json").write_text(
+                json.dumps(generation), encoding="utf-8"
+            )
+            plan = build_plan(root, root / ".short-drama-cache", root / "二次创作发行", DEFAULTS)
+            self.assertEqual(plan["mode"], "verify_required")
+            self.assertFalse(plan["model_calls_allowed"])
 
 
 if __name__ == "__main__":

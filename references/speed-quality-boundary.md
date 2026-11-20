@@ -14,6 +14,7 @@
 每次运行先执行 `scripts/plan_run.py`。它只比较源视频 SHA256、相对路径、Skill/图像/脚本/模型版本和上一次已验证输出：
 
 - `noop`：只运行 `fast_resume.py` 和必要的轻量验收；不启动 Whisper、视觉模型、剧情模型，不读取完整 ASR、图片或脚本正文。
+- `noop` 前必须复算正式包 `delivery_fingerprint`；缺少或不匹配时只能进入验证/重建路径，不能静默复用。
 - `incremental`：只处理 `changed_episodes` 和受影响依赖闭包；未变化集复用已验证 artifact。
 - `full`：首次运行或证据缺失时才走全量流程。
 
