@@ -1,0 +1,18 @@
+.env
+.env.*
+!.env.example
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+node_modules/
+dist/
+build/
+*.egg-info/
+.DS_Store
+.short-drama-cache/
+
+# Local run artifacts must stay outside the Skill repository.
+runs/
+stage/
+current/
