@@ -39,7 +39,13 @@ def compute(root: Path) -> dict[str, Any]:
         if not package_root.is_dir():
             entries.append((f"{package}/<missing>", "MISSING"))
             continue
-        for path in sorted(p for p in package_root.rglob("*") if p.is_file()):
+        for path in sorted(
+            p for p in package_root.rglob("*")
+            if p.is_file()
+            and p.name != ".DS_Store"
+            and "__pycache__" not in p.parts
+            and not p.name.endswith(".tmp")
+        ):
             rel = path.relative_to(root).as_posix()
             entries.append((rel, sha256_file(path)))
     canonical = "\n".join(f"{path}\t{digest}" for path, digest in entries).encode()

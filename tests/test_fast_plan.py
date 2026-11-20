@@ -9,6 +9,7 @@ import sys
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 from plan_run import DEFAULTS, build_plan  # noqa: E402
+from delivery_fingerprint import compute  # noqa: E402
 
 
 class FastPlanTests(unittest.TestCase):
@@ -84,6 +85,17 @@ class FastPlanTests(unittest.TestCase):
             plan = build_plan(root, root / ".short-drama-cache", root / "二次创作发行", DEFAULTS)
             self.assertEqual(plan["mode"], "verify_required")
             self.assertFalse(plan["model_calls_allowed"])
+
+    def test_delivery_fingerprint_ignores_macos_metadata(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp) / "release"
+            package = root / "01_引流款_第01集" / "03_脚本"
+            package.mkdir(parents=True)
+            (package / "Seedance_一键复制.md").write_text("script", encoding="utf-8")
+            first = compute(root)["fingerprint"]
+            (root / "01_引流款_第01集" / ".DS_Store").write_bytes(b"finder noise")
+            second = compute(root)["fingerprint"]
+            self.assertEqual(first, second)
 
 
 if __name__ == "__main__":
