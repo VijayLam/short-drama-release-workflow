@@ -13,6 +13,8 @@ import time
 from pathlib import Path
 from typing import Any
 
+from path_guard import OutputPathError, resolve_output_path
+
 DEFAULTS = {
     "skill_version": "2026.11-production-control-v2",
     "image_rule_version": "2026.11-image-selection-v2",
@@ -136,7 +138,11 @@ def main() -> int:
     args = parser.parse_args()
     source = args.source.expanduser().resolve()
     cache = (args.cache or source / ".short-drama-cache").expanduser().resolve()
-    output = (args.output or source / "二次创作发行").expanduser().resolve()
+    try:
+        output = resolve_output_path(source, args.output)
+    except OutputPathError as exc:
+        print(json.dumps({"mode": "blocked", "reason": "output_outside_source", "detail": str(exc)}, ensure_ascii=False, indent=2))
+        return 2
     versions = {
         "skill_version": args.skill_version,
         "image_rule_version": args.image_rule_version,

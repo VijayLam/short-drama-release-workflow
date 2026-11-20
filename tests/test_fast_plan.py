@@ -8,11 +8,20 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
+from path_guard import OutputPathError, resolve_output_path  # noqa: E402
 from plan_run import DEFAULTS, build_plan  # noqa: E402
 from delivery_fingerprint import compute  # noqa: E402
 
 
 class FastPlanTests(unittest.TestCase):
+    def test_formal_output_must_stay_under_source(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            source = Path(temp) / "source"
+            source.mkdir()
+            self.assertEqual(resolve_output_path(source), (source / "二次创作发行").resolve())
+            with self.assertRaises(OutputPathError):
+                resolve_output_path(source, Path(temp) / "outside")
+
     def write_state(self, root: Path, hashes: dict[str, str], output_status: str = "current") -> None:
         cache = root / ".short-drama-cache"
         output = root / "二次创作发行"

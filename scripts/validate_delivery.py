@@ -17,7 +17,7 @@ from typing import Any
 from PIL import Image, ImageFilter, ImageStat
 
 REQUIRED = ["镜头", "人物", "台词", "字幕", "BGM", "音效", "尾帧", "禁止项"]
-FORBIDDEN = ("待补", "时间待定", "自行发挥", "见 Excel", "TODO")
+FORBIDDEN = ("待补", "时间待定", "自行发挥", "见 Excel", "TODO", "字幕：字幕：", "第一帧")
 TIME_RE = re.compile(r"(\d+(?:\.\d+)?)\s*[—-]\s*(\d+(?:\.\d+)?)\s*秒")
 SHOT_HEAD_RE = re.compile(r"^###\s*镜头[^\\n]*?(\d+(?:\.\d+)?)\s*[—-]\s*(\d+(?:\.\d+)?)\s*秒", re.M)
 PERSON_NAME_RE = re.compile(r"^人物_.+?_.+?_.+?_第\d+集_\d+分\d+(?:\.\d+)?秒$")
@@ -292,6 +292,10 @@ def validate_package(
                 issues.append(f"{script.name}:镜头{idx}缺少面部/神态细节")
             if "使用图片" not in block or "场景图" not in block:
                 issues.append(f"{script.name}:镜头{idx}缺少人物/场景图片绑定")
+            if "台词：无对白" in block and "字幕：无字幕" not in block:
+                issues.append(f"{script.name}:镜头{idx}无对白却有强制字幕")
+            if "字幕：无对白" in block:
+                issues.append(f"{script.name}:镜头{idx}把无对白错误写成字幕")
             for ref in IMAGE_REF_RE.findall(block):
                 ref_path = people / ref
                 if not ref_path.exists():
