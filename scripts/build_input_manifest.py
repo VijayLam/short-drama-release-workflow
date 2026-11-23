@@ -184,7 +184,7 @@ def main() -> int:
     parser.add_argument("source", type=Path, help="包含正式短剧视频的源文件夹")
     parser.add_argument("--cache", type=Path, default=None, help="缓存目录，默认源目录/.short-drama-cache")
     parser.add_argument("--workers", type=int, default=0, help="并行 worker 数，默认自动限制在1—4")
-    parser.add_argument("--skill-version", default="2026.11-production-control-v2")
+    parser.add_argument("--skill-version", default="2026.11-production-control-v4-ocr-first")
     parser.add_argument("--include-subfolders", action="store_true", help="显式允许扫描子目录视频")
     parser.add_argument("--trust-metadata-cache", action="store_true", help="仅在源文件不会被原地替换时，用大小和mtime跳过SHA256")
     args = parser.parse_args()

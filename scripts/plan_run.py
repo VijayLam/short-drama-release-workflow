@@ -16,10 +16,10 @@ from typing import Any
 from path_guard import OutputPathError, resolve_output_path
 
 DEFAULTS = {
-    "skill_version": "2026.11-production-control-v2",
+    "skill_version": "2026.11-production-control-v4-ocr-first",
     "image_rule_version": "2026.11-image-selection-v2",
-    "script_template_version": "2026.11-creative-script-v3-episode-motif",
-    "analysis_model_version": "whisper-small-legacy-plus-csv-facts",
+    "script_template_version": "2026.11-seedance-prompt-v1-platform-boundary",
+    "analysis_model_version": "vision-caption-ocr-v1-optional-ollama-asr",
 }
 
 
