@@ -1,7 +1,7 @@
 interface:
   display_name: "短剧发行工作流"
-  short_description: "并行提取短剧人物与场景，并生成 Seedance 一键复制投喂包"
-  default_prompt: "使用 $short-drama-release-workflow 处理这个本地短剧文件夹，按集并行提取剧情、单人物图片和场景图片，并生成五种可直接投喂 Seedance/豆包的二次创作包。"
+  short_description: "并行提取短剧人物与场景，生成按集验收的 Seedance 投喂包"
+  default_prompt: "使用 $short-drama-release-workflow 处理这个本地短剧文件夹，按集并行提取剧情、单人物图片和场景图片；每集按剧情从五种类型中选一类，生成一个可直接投喂 Seedance/豆包的二次创作包，默认30秒并在15秒处分段。使用有界时限和按集验收，只交付通过的包。"
 
 policy:
   allow_implicit_invocation: true
